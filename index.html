@@ -69,6 +69,7 @@ summary{cursor:pointer;font-weight:600}
 
 <div class="tabs" role="tablist" id="tabs"></div>
 <div class="info" id="stat"></div>
+<div class="row" id="expRow" style="margin:0 0 6px"><span class="info" style="margin:0">Зберегти в HTML:</span><button data-ex="0">Пошук 1</button><button data-ex="1">Пошук 2</button><button data-ex="both">Обидва</button></div>
 <div id="out"></div>
 <div class="row"><button id="more" class="hide">Показати ще</button></div>
 
@@ -87,7 +88,7 @@ summary{cursor:pointer;font-weight:600}
 const $=id=>document.getElementById(id);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
           set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
-let msgs=[],view=0,limit=200;
+let msgs=[],view=0,limit=200,chatName='';
 const DEF=[{name:'',words:'АРБА спочинь гот "ПТ +" "ВПТ +" готовність відбій',mode:'any',senders:[],sf:''},{name:'',words:'МВГ Сокіл-78',mode:'any',senders:[],sf:''}];
 let slots=LS.get('wa_slots_v2',JSON.parse(JSON.stringify(DEF)));
 let lib=LS.get('wa_lib',[]);
@@ -210,6 +211,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
   if(d.v!==undefined){view=+d.v;limit=200;refresh()}
+  else if(d.ex!==undefined)exportHTML(d.ex==='both'?'both':+d.ex);
   else if(d.save!==undefined){
     const s=slots[+d.save];if(!terms(s.words).length&&!hasSender(s)){alert('Спочатку введіть слова або оберіть відправників.');return}
     const name=s.name||s.words.slice(0,40);
@@ -233,7 +235,7 @@ $('more').onclick=()=>{limit+=200;renderList()};
 
 $('file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  const txt=await f.text();msgs=parse(txt);
+  const txt=await f.text();msgs=parse(txt);chatName=f.name;
   if(!msgs.length){$('fileInfo').textContent='Не вдалося розпізнати повідомлення у файлі «'+f.name+'».';return}
   $('fileInfo').textContent=f.name+' · повідомлень: '+msgs.length+' · '+msgs[0].d+' — '+msgs[msgs.length-1].d;
   LS.set('wa_chat',{name:f.name,txt});
@@ -241,6 +243,33 @@ $('file').onchange=async e=>{
 };
 
 function exportData(){return JSON.stringify({type:'wa-search-lib',v:1,items:lib,slots},null,1)}
+function exportHTML(which){
+  if(!msgs.length){alert('Спочатку відкрийте чат.');return}
+  const ids=which==='both'?[0,1]:[which];
+  const body=ids.map(i=>{
+    const sl=slots[i],fr=(sl.sf||'').split(/[,;]/).map(x=>x.trim()).filter(Boolean);
+    const snd=[...(sl.senders||[]),...fr];
+    const head=`<section class="card s${i}"><h2>Пошук ${i+1}${sl.name?': '+esc(sl.name):''}</h2>
+      <div class="info">Слова: ${esc(sl.words||'—')} (${sl.mode==='any'?'будь-яке зі слів':'усі слова'})${snd.length?'<br>Від кого: '+esc(snd.join(', ')):''}</div>`;
+    if(!terms(sl.words).length&&!hasSender(sl))return head+'<div class="info">Пошук порожній.</div></section>';
+    const list=msgs.filter(m=>matches(m,sl));
+    let last='';
+    const items=list.map(m=>{
+      let h='';if(m.d!==last){last=m.d;h='<div class="day">'+m.d+'</div>'}
+      return h+`<article class="msg q${i}${m.sys?' sys':''}"><div class="meta"><span class="stamp">${m.d} · ${m.t}</span><span class="who">${esc(m.s||'Системне')}</span></div><div class="body">${hl(m.x,i)}</div></article>`;
+    }).join('');
+    return head+`<div class="info"><b>Знайдено повідомлень: ${list.length}</b></div></section>`+(items||'<p class="info">Нічого не знайдено.</p>');
+  }).join('');
+  const css=document.querySelector('style').textContent+'.day{top:0}';
+  const when=new Date();
+  const html='<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Результати пошуку</title><style>'+css+'</style></head><body><main><h1>Результати пошуку</h1><p class="sub">Чат: '+esc(chatName||'—')+' · створено '+esc(when.toLocaleString('uk-UA'))+'</p>'+body+'</main></body></html>';
+  try{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    a.download='rezultaty-poshuku-'+when.toISOString().slice(0,10)+(which==='both'?'':'-p'+(which+1))+'.html';
+    document.body.appendChild(a);a.click();a.remove();
+  }catch(err){alert('Не вдалося створити файл.')}
+}
 $('exp').onclick=()=>{
   const s=exportData();$('ta').value=s;
   try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'application/json'}));
@@ -260,7 +289,7 @@ $('impT').onclick=()=>doImport($('ta').value);
 (function init(){
   renderSlots();renderLib();
   const c=LS.get('wa_chat',null);
-  if(c&&c.txt){msgs=parse(c.txt);$('fileInfo').textContent=c.name+' · повідомлень: '+msgs.length+' (збережено на пристрої)';renderSlots()}
+  if(c&&c.txt){chatName=c.name;msgs=parse(c.txt);$('fileInfo').textContent=c.name+' · повідомлень: '+msgs.length+' (збережено на пристрої)';renderSlots()}
   refresh();
 })();
 </script></body></html>
