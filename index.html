@@ -7,28 +7,40 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-:root{--bg:#e8e6dc;--card:#f6f5ee;--ink:#22251e;--mut:#686c5d;--line:#cbc8b8;--a:#a8500c;--aBg:#ffc95e;--aSoft:#fff3dc;--b:#1b5a85;--bBg:#8ecdf5;--bSoft:#e6f3fc;--btn:#3b4728;--btnT:#f6f5ee}
-@media(prefers-color-scheme:dark){:root{--bg:#1a1c17;--card:#25281f;--ink:#e8e6da;--mut:#9a9d8e;--line:#3a3e32;--a:#f0a45a;--aBg:#8a5a10;--aSoft:#2f2819;--b:#7cc0ea;--bBg:#21618f;--bSoft:#1b2a35;--btn:#a9bd86;--btnT:#1a1c17}}
+:root{--bg:#f1efe6;--card:#ffffff;--ink:#111309;--mut:#43463a;--line:#8f8d79;--a:#8f3f00;--aSoft:#fff0cf;--b:#0b4f7a;--bSoft:#dcefff;--btn:#2f3a1d;--btnT:#ffffff;--fbg:#ffffff;--fbd:#5c5b4a}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e100b;--card:#1b1e15;--ink:#fbfaf2;--mut:#c4c7b6;--line:#656a57;--a:#ffb35c;--aSoft:#33260f;--b:#8fd0ff;--bSoft:#102535;--btn:#c3d89c;--btnT:#10130a;--fbg:#07080a;--fbd:#9da28c}}
+:root[data-theme=dark]{--bg:#0e100b;--card:#1b1e15;--ink:#fbfaf2;--mut:#c4c7b6;--line:#656a57;--a:#ffb35c;--aSoft:#33260f;--b:#8fd0ff;--bSoft:#102535;--btn:#c3d89c;--btnT:#10130a;--fbg:#07080a;--fbd:#9da28c}
+:root[data-theme=light]{--bg:#f1efe6;--card:#ffffff;--ink:#111309;--mut:#43463a;--line:#8f8d79;--a:#8f3f00;--aSoft:#fff0cf;--b:#0b4f7a;--bSoft:#dcefff;--btn:#2f3a1d;--btnT:#ffffff;--fbg:#ffffff;--fbd:#5c5b4a}
 *{box-sizing:border-box}
-html{padding-top:env(safe-area-inset-top,0)}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;padding-bottom:env(safe-area-inset-bottom,0)}
-main{max-width:760px;margin:0 auto;padding:12px}
-h1{font-size:1.25rem;margin:4px 0 2px}
-.sub{color:var(--mut);font-size:.9rem;margin:0 0 10px}
-button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
+html{padding-top:env(safe-area-inset-top,0);font-size:18px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media(min-width:700px){html{font-size:20px}}
+body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.5 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;padding-bottom:env(safe-area-inset-bottom,0)}
+main{max-width:820px;margin:0 auto;padding:12px}
+h1{font-size:1.5rem;margin:4px 0 8px}
+.sub{color:var(--mut);font-size:.95rem;margin:0 0 10px;overflow-wrap:anywhere}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 14px;min-height:44px;cursor:pointer;font-weight:600}
 button.p,.btn.p{background:var(--btn);color:var(--btnT);border-color:var(--btn)}
 button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--b);outline-offset:1px}
 textarea{resize:vertical;line-height:1.35}
-input[type=text],textarea,select{font:inherit;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;border-left-width:6px}
-.card.s0{border-left-color:var(--a)}.card.s1{border-left-color:var(--b)}
-.card h2{font-size:1rem;margin:0 0 8px}
-.s0 h2{color:var(--a)}.s1 h2{color:var(--b)}
+input[type=text],textarea,select{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--fbd);border-radius:8px;background:var(--fbg);color:var(--ink)}
+::placeholder{color:var(--mut);opacity:.85}
+select{min-height:48px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:12px;margin:14px 0;overflow:hidden}
+.card.s0{border-color:var(--a)}.card.s1{border-color:var(--b)}
+.card h2{font-size:1.25rem;margin:-12px -12px 12px;padding:10px 14px;color:var(--bg)}
+.s0 h2{background:var(--a)}.s1 h2{background:var(--b)}
+.lnk{color:var(--ink);font-weight:600;margin:0 0 6px}
+.card .row>.g{flex:1 1 100%}.card .row>button{flex:1 1 40%}
+.btn.big{display:block;text-align:center;font-size:1.15rem;padding:14px;min-height:54px;margin:8px 0}
+.tools>*{flex:1}
+#fileInfo{color:var(--ink);font-weight:600}
+h1{border-bottom:4px solid var(--btn);padding-bottom:6px}
+.item .t b{font-size:1.1rem}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .row>*{flex:0 0 auto}.row>.g{flex:1 1 140px}
-label.f{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 3px}
+label.f{display:block;font-size:.95rem;color:var(--mut);font-weight:600;margin:10px 0 4px}
 .tabs{display:flex;gap:6px;margin:12px 0 6px;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2}
-.tabs button{flex:1;padding:9px 4px;font-size:.92rem}
+.tabs button{flex:1;padding:10px 4px;font-size:1rem;min-height:48px}
 .tabs button[aria-selected=true]{background:var(--btn);color:var(--btnT);border-color:var(--btn);font-weight:700}
 .tabs button.t0[aria-selected=true]{background:var(--a);border-color:var(--a);color:var(--bg)}
 .tabs button.t1[aria-selected=true]{background:var(--b);border-color:var(--b);color:var(--bg)}
@@ -36,28 +48,28 @@ label.f{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 3px}
 .msg{background:var(--card);border:1px solid var(--line);border-left-width:7px;border-radius:10px;padding:10px 12px;margin:9px 0}
 .msg.q0{border-left-color:var(--a);background:var(--aSoft)}
 .msg.q1{border-left-color:var(--b);background:var(--bSoft)}
-.msg.sys{background:transparent;border-style:dashed;color:var(--mut);font-size:.9rem}
+.msg.sys{background:transparent;border-style:dashed;color:var(--mut);font-size:.95rem}
 .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.meta .who{font-weight:700;font-size:1.02rem;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
-.stamp{font-weight:700;font-size:.95rem;font-variant-numeric:tabular-nums;border-radius:6px;padding:2px 8px;background:var(--bg);border:1px solid var(--line)}
+.meta .who{font-weight:800;font-size:1.1rem;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
+.stamp{font-weight:800;font-size:1rem;font-variant-numeric:tabular-nums;border-radius:6px;padding:2px 8px;background:var(--bg);border:1px solid var(--line)}
 .q0 .stamp{background:var(--a);border-color:var(--a);color:var(--bg)}
 .q1 .stamp{background:var(--b);border-color:var(--b);color:var(--bg)}
 .sys .stamp{font-weight:600;color:var(--mut)}
-.day{position:sticky;top:46px;z-index:1;margin:14px 0 2px;padding:4px 10px;font-weight:700;font-size:.95rem;border-radius:6px;background:var(--ink);color:var(--bg);width:max-content;max-width:100%}
-.body{white-space:pre-wrap;word-break:break-word;font-size:1.06rem;line-height:1.55}
-mark{border-radius:3px;padding:0 2px;color:inherit;font-weight:700}
-mark.m0{background:var(--aBg);box-shadow:0 0 0 1px var(--a)}mark.m1{background:var(--bBg);box-shadow:0 0 0 1px var(--b)}
-.info{color:var(--mut);font-size:.9rem;margin:6px 0}
-details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:10px 0}
-summary{cursor:pointer;font-weight:600}
-.item{display:flex;gap:6px;align-items:center;padding:7px 0;border-top:1px solid var(--line);flex-wrap:wrap}
-.item .t{flex:1 1 150px;min-width:0}.item .t small{display:block;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.item button{padding:6px 10px}
-.snd{margin-top:10px;background:var(--bg)}
+.day{position:sticky;top:var(--tabh,56px);z-index:1;margin:14px 0 2px;padding:5px 12px;font-weight:800;font-size:1.05rem;border-radius:6px;background:var(--ink);color:var(--bg);width:max-content;max-width:100%}
+.body{white-space:pre-wrap;word-break:break-word;font-size:1.15rem;line-height:1.6}
+mark{border-radius:3px;padding:0 3px;font-weight:800}
+mark.m0{background:#ffd23f;color:#141000;box-shadow:0 0 0 2px #b36b00}mark.m1{background:#86d4ff;color:#001622;box-shadow:0 0 0 2px #0b5f93}
+.info{color:var(--mut);font-size:.95rem;margin:6px 0}
+details{background:var(--card);border:2px solid var(--line);border-radius:10px;padding:8px 12px;margin:10px 0}
+summary{cursor:pointer;font-weight:700;font-size:1.05rem;min-height:36px}
+.item{display:flex;gap:6px;align-items:center;padding:9px 0;border-top:2px solid var(--line);flex-wrap:wrap}
+.item .t{flex:1 1 150px;min-width:0}.item .t small{display:block;color:var(--mut);font-size:.95rem;overflow-wrap:anywhere}
+.item button{padding:6px 12px}
+.snd{margin-top:12px;background:var(--fbg);border-color:var(--fbd)}
 .snd summary{font-weight:600;color:var(--a)}
 .sl{max-height:240px;overflow:auto;margin-top:6px}
-.sr{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--line)}
-.sr input{width:20px;height:20px;flex:0 0 auto;accent-color:var(--a)}
+.sr{display:flex;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line)}
+.sr input{width:26px;height:26px;flex:0 0 auto;accent-color:var(--a)}
 .sr span{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 .sr small{color:var(--mut);margin-left:auto}
 .hide{display:none}
@@ -66,9 +78,8 @@ summary{cursor:pointer;font-weight:600}
 <body><main>
 <h1>Пошук у чаті WhatsApp</h1>
 <p class="sub" id="fileInfo">Файл ще не завантажено.</p>
-<div class="row" style="margin-top:0">
-  <label class="btn p">Відкрити чат (.txt)<input id="file" type="file" accept=".txt,text/plain" class="hide"></label>
-</div>
+<label class="btn p big">Відкрити чат (.txt)<input id="file" type="file" accept=".txt,text/plain" class="hide"></label>
+<div class="row tools" style="margin-top:0"><button id="fm" aria-label="Менший текст">A−</button><button id="fp" aria-label="Більший текст">A+</button><button id="th">Тема</button></div>
 
 <div id="slots"></div>
 
@@ -173,7 +184,7 @@ function hl(text,idx){
 function renderSlots(){
   $('slots').innerHTML=[0,1].map(i=>`
   <section class="card s${i}"><h2>Пошук ${i+1}</h2>
-    <div class="info" style="margin:-4px 0 4px">${libOf(i)?'🔗 Зберігається в довіднику автоматично':'Не пов’язано з довідником (кнопка «У довідник»)'}</div>
+    <div class="info lnk">${libOf(i)?'🔗 Зберігається в довіднику автоматично':'Не пов’язано з довідником (кнопка «У довідник»)'}</div>
     <label class="f" for="nm${i}">Назва</label>
     <input type="text" id="nm${i}" value="${esc(slots[i].name)}" placeholder="Напр. «Дрони Полтавщина»" data-i="${i}" data-k="name">
     <label class="f" for="w${i}">Слова (через пробіл або кому; фраза — в лапках)</label>
@@ -218,7 +229,7 @@ function renderLib(){
     <button data-load="${i},0">→ 1</button><button data-load="${i},1">→ 2</button><button data-del="${i}" aria-label="Видалити">✕</button></div>`).join('')
     :'<p class="info">Довідник порожній. Натисніть «У довідник» біля пошуку.</p>';
 }
-function refresh(){renderTabs();renderList()}
+function refresh(){renderTabs();renderList();if(typeof fixTabH==='function')fixTabH()}
 function persist(){LS.set('wa_slots_v2',slots);LS.set('wa_lib',lib)}
 
 document.addEventListener('input',e=>{
@@ -252,6 +263,19 @@ document.addEventListener('change',e=>{
   if(libOf(i)){pushSlot(i);renderLib()}persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
 });
 $('more').onclick=()=>{limit+=200;renderList()};
+const root=document.documentElement;
+let fs=LS.get('wa_fs',0),th=LS.get('wa_theme','auto');
+function fixTabH(){root.style.setProperty('--tabh',($('tabs').offsetHeight||56)+'px')}
+function applyLook(){
+  root.style.fontSize=fs?fs+'px':'';
+  if(th==='auto')root.removeAttribute('data-theme');else root.setAttribute('data-theme',th);
+  $('th').textContent='Тема: '+({auto:'авто',light:'світла',dark:'темна'}[th]);
+  fixTabH();
+}
+function bump(d){const base=fs||Math.round(parseFloat(getComputedStyle(root).fontSize));fs=Math.max(14,Math.min(34,base+d));LS.set('wa_fs',fs);applyLook()}
+$('fm').onclick=()=>bump(-2);$('fp').onclick=()=>bump(2);
+$('th').onclick=()=>{th={auto:'light',light:'dark',dark:'auto'}[th];LS.set('wa_theme',th);applyLook()};
+addEventListener('resize',fixTabH);
 
 $('file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
@@ -282,7 +306,7 @@ function exportHTML(which){
   }).join('');
   const css=document.querySelector('style').textContent+'.day{top:0}';
   const when=new Date();
-  const html='<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Результати пошуку</title><style>'+css+'</style></head><body><main><h1>Результати пошуку</h1><p class="sub">Чат: '+esc(chatName||'—')+' · створено '+esc(when.toLocaleString('uk-UA'))+'</p>'+body+'</main></body></html>';
+  const html='<!DOCTYPE html><html lang="uk" style="font-size:'+getComputedStyle(root).fontSize+'"'+(th==='auto'?'':' data-theme="'+th+'"')+'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Результати пошуку</title><style>'+css+'</style></head><body><main><h1>Результати пошуку</h1><p class="sub">Чат: '+esc(chatName||'—')+' · створено '+esc(when.toLocaleString('uk-UA'))+'</p>'+body+'</main></body></html>';
   try{
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
@@ -332,6 +356,7 @@ $('impT').onclick=()=>doImport($('ta').value);
     pullSlot(i);
   });
   persist();
+  applyLook();
   renderSlots();renderLib();
   let c=null;
   try{c=await IDB.get('wa_chat')}catch(e){}
