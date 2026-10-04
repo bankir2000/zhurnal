@@ -102,6 +102,13 @@ let msgs=[],view=0,limit=200,chatName='';
 const DEF=[{name:'',words:'АРБА спочинь гот "ПТ +" "ВПТ +" готовність відбій',mode:'any',senders:[],sf:''},{name:'',words:'МВГ Сокіл-78',mode:'all',senders:[],sf:''}];
 let slots=LS.get('wa_slots_v2',JSON.parse(JSON.stringify(DEF)));
 let lib=LS.get('wa_lib',[]);
+const FIELDS=['name','words','mode','senders','sf'];
+const newId=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+lib.forEach(e=>{if(!e.id)e.id=newId()});
+function libOf(i){return slots[i].link?lib.find(e=>e.id===slots[i].link)||null:null}
+function pullSlot(i){const e=libOf(i);if(!e){slots[i].link=null;return}FIELDS.forEach(k=>slots[i][k]=Array.isArray(e[k])?e[k].slice():(e[k]===undefined?'':e[k]))}
+function pushSlot(i){const e=libOf(i);if(!e)return;const x=slots[i];e.name=x.name||x.words.slice(0,40);e.words=x.words;e.mode=x.mode;e.senders=(x.senders||[]).slice();e.sf=x.sf||''}
+function linkSlot(j,id){const o=1-j;if(slots[o].link===id)slots[o].link=null;slots[j].link=id;pullSlot(j)}
 const norm=s=>s.toLowerCase().replace(/[’ʼ`‘]/g,"'");
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -166,6 +173,7 @@ function hl(text,idx){
 function renderSlots(){
   $('slots').innerHTML=[0,1].map(i=>`
   <section class="card s${i}"><h2>Пошук ${i+1}</h2>
+    <div class="info" style="margin:-4px 0 4px">${libOf(i)?'🔗 Зберігається в довіднику автоматично':'Не пов’язано з довідником (кнопка «У довідник»)'}</div>
     <label class="f" for="nm${i}">Назва</label>
     <input type="text" id="nm${i}" value="${esc(slots[i].name)}" placeholder="Напр. «Дрони Полтавщина»" data-i="${i}" data-k="name">
     <label class="f" for="w${i}">Слова (через пробіл або кому; фраза — в лапках)</label>
@@ -206,7 +214,7 @@ function renderList(){
   $('more').classList.toggle('hide',list.length<=limit);
 }
 function renderLib(){
-  $('lib').innerHTML=lib.length?lib.map((e,i)=>`<div class="item"><div class="t"><b>${esc(e.name||'Без назви')}</b><small>${esc(e.words)} · ${e.mode==='any'?'будь-яке':'усі'}${(e.senders&&e.senders.length)||e.sf?' · від: '+esc([...(e.senders||[]),e.sf||''].filter(Boolean).join(', ')):''}</small></div>
+  $('lib').innerHTML=lib.length?lib.map((e,i)=>`<div class="item"><div class="t"><b>${esc(e.name||'Без назви')}${slots.map((x,k)=>x.link===e.id?' 🔗'+(k+1):'').join('')}</b><small>${esc(e.words)} · ${e.mode==='any'?'будь-яке':'усі'}${(e.senders&&e.senders.length)||e.sf?' · від: '+esc([...(e.senders||[]),e.sf||''].filter(Boolean).join(', ')):''}</small></div>
     <button data-load="${i},0">→ 1</button><button data-load="${i},1">→ 2</button><button data-del="${i}" aria-label="Видалити">✕</button></div>`).join('')
     :'<p class="info">Довідник порожній. Натисніть «У довідник» біля пошуку.</p>';
 }
@@ -215,7 +223,7 @@ function persist(){LS.set('wa_slots_v2',slots);LS.set('wa_lib',lib)}
 
 document.addEventListener('input',e=>{
   const d=e.target.dataset;if(d.i===undefined)return;
-  slots[+d.i][d.k]=e.target.value;persist();limit=200;
+  slots[+d.i][d.k]=e.target.value;if(libOf(+d.i)){pushSlot(+d.i);renderLib()}persist();limit=200;
   if(d.k!=='name'){view=+d.i;refresh()}
 });
 document.addEventListener('click',e=>{
@@ -223,23 +231,25 @@ document.addEventListener('click',e=>{
   if(d.v!==undefined){view=+d.v;limit=200;refresh()}
   else if(d.ex!==undefined)exportHTML(d.ex==='both'?'both':+d.ex);
   else if(d.save!==undefined){
-    const s=slots[+d.save];if(!terms(s.words).length&&!hasSender(s)){alert('Спочатку введіть слова або оберіть відправників.');return}
-    const name=s.name||s.words.slice(0,40);
-    const ex=lib.find(x=>x.name===name&&x.words===s.words);
-    if(!ex)lib.push({name,words:s.words,mode:s.mode,senders:(s.senders||[]).slice(),sf:s.sf||''});
-    persist();renderLib();$('libBox').open=true;
+    const i=+d.save,x=slots[i];if(!terms(x.words).length&&!hasSender(x)){alert('Спочатку введіть слова або оберіть відправників.');return}
+    const name=x.name||x.words.slice(0,40);
+    let e=libOf(i)||lib.find(y=>y.name===name&&y.words===x.words);
+    if(!e){e={id:newId()};lib.push(e)}
+    slots[1-i].link===e.id&&(slots[1-i].link=null);
+    x.link=e.id;pushSlot(i);
+    persist();renderLib();renderSlots();$('libBox').open=true;
   }
-  else if(d.sall!==undefined){const i=+d.sall;slots[i].senders=[];slots[i].sf='';if($('sf'+i))$('sf'+i).value='';document.querySelectorAll('[data-snd="'+i+'"]').forEach(c=>c.checked=false);$('sndSum'+i).textContent=sumText(i);view=i;limit=200;persist();refresh()}
-  else if(d.clear!==undefined){slots[+d.clear]={name:'',words:'',mode:'all',senders:[],sf:''};persist();renderSlots();refresh()}
-  else if(d.load!==undefined){const [i,j]=d.load.split(',').map(Number);slots[j]={senders:[],sf:'',...lib[i]};view=j;limit=200;persist();renderSlots();refresh();scrollTo({top:0,behavior:'smooth'})}
-  else if(d.del!==undefined){if(confirm('Видалити з довідника?')){lib.splice(+d.del,1);persist();renderLib()}}
+  else if(d.sall!==undefined){const i=+d.sall;slots[i].senders=[];slots[i].sf='';if($('sf'+i))$('sf'+i).value='';document.querySelectorAll('[data-snd="'+i+'"]').forEach(c=>c.checked=false);$('sndSum'+i).textContent=sumText(i);if(libOf(i)){pushSlot(i);renderLib()}view=i;limit=200;persist();refresh()}
+  else if(d.clear!==undefined){slots[+d.clear]={name:'',words:'',mode:'all',senders:[],sf:'',link:null};persist();renderLib();renderSlots();refresh()}
+  else if(d.load!==undefined){const [i,j]=d.load.split(',').map(Number);slots[j]={name:'',words:'',mode:'all',senders:[],sf:'',link:null};linkSlot(j,lib[i].id);renderLib();view=j;limit=200;persist();renderSlots();refresh();scrollTo({top:0,behavior:'smooth'})}
+  else if(d.del!==undefined){if(confirm('Видалити з довідника?')){const id=lib[+d.del].id;slots.forEach(x=>{if(x.link===id)x.link=null});lib.splice(+d.del,1);persist();renderLib();renderSlots()}}
 });
 document.addEventListener('change',e=>{
   const t=e.target;if(t.dataset.snd===undefined)return;
   const i=+t.dataset.snd,n=SNDN[+t.value];
   const a=slots[i].senders=slots[i].senders||[],k=a.indexOf(n);
   if(t.checked&&k<0)a.push(n);if(!t.checked&&k>=0)a.splice(k,1);
-  persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
+  if(libOf(i)){pushSlot(i);renderLib()}persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
 });
 $('more').onclick=()=>{limit+=200;renderList()};
 
@@ -252,7 +262,7 @@ $('file').onchange=async e=>{
   limit=200;renderSlots();refresh();
 };
 
-function exportData(){return JSON.stringify({type:'wa-search-lib',v:1,items:lib,slots},null,1)}
+function exportData(){return JSON.stringify({type:'wa-search-lib',v:2,items:lib,slots:slots.map(x=>({...x,link:undefined})),links:[slots[0].link||null,slots[1].link||null]},null,1)}
 function exportHTML(which){
   if(!msgs.length){alert('Спочатку відкрийте чат.');return}
   const ids=which==='both'?[0,1]:[which];
@@ -288,15 +298,40 @@ $('exp').onclick=()=>{
 function doImport(s){
   try{
     const j=JSON.parse(s);if(j.type!=='wa-search-lib'||!Array.isArray(j.items))throw 0;
-    let n=0;j.items.forEach(x=>{if(x&&(x.words||x.sf||(x.senders&&x.senders.length))&&!lib.some(y=>y.name===x.name&&y.words===x.words)){lib.push({name:x.name||'',words:x.words,mode:x.mode==='any'?'any':'all',senders:Array.isArray(x.senders)?x.senders:[],sf:x.sf||''});n++}});
-    if(Array.isArray(j.slots)&&j.slots.length===2){slots=j.slots.map(x=>({name:x.name||'',words:x.words||'',mode:x.mode==='any'?'any':'all',senders:Array.isArray(x.senders)?x.senders:[],sf:x.sf||''}));renderSlots()}
-    persist();renderLib();refresh();alert('Імпортовано записів: '+n);
+    let n=0,u=0;const idMap={},res=[];
+    j.items.forEach(x=>{
+      if(!x||!(x.words||x.sf||(x.senders&&x.senders.length))){res.push(null);return}
+      const it={name:x.name||'',words:x.words||'',mode:x.mode==='any'?'any':'all',senders:Array.isArray(x.senders)?x.senders:[],sf:x.sf||''};
+      let e=x.id&&lib.find(y=>y.id===x.id);
+      if(e){FIELDS.forEach(k=>e[k]=it[k]);u++}
+      else{
+        e=lib.find(y=>y.name===it.name&&y.words===it.words);
+        if(!e){e={id:newId(),...it};lib.push(e);n++}
+      }
+      if(x.id)idMap[x.id]=e.id;res.push(e);
+    });
+    if(Array.isArray(j.slots)&&j.slots.length===2){
+      j.slots.forEach((x,i)=>{
+        let id=null;
+        if(Array.isArray(j.links)&&j.links[i])id=idMap[j.links[i]]||null;
+        else if(!Array.isArray(j.links)){const f=res.find(e=>e&&e.words===(x.words||'')&&(e.sf||'')===(x.sf||'')&&e.mode===(x.mode==='any'?'any':'all'));id=f?f.id:null}
+        if(id)linkSlot(i,id);
+        else slots[i]={name:x.name||'',words:x.words||'',mode:x.mode==='any'?'any':'all',senders:Array.isArray(x.senders)?x.senders:[],sf:x.sf||'',link:null};
+      });
+    }
+    persist();renderLib();renderSlots();refresh();alert('Додано записів: '+n+', оновлено: '+u);
   }catch(err){alert('Невірний файл довідника.')}
 }
 $('imp').onchange=async e=>{const f=e.target.files[0];if(f)doImport(await f.text());e.target.value=''};
 $('impT').onclick=()=>doImport($('ta').value);
 
 (async function init(){
+  [0,1].forEach(i=>{
+    const x=slots[i];
+    if(!x.link&&x.words){const f=lib.find(e=>e.words===x.words&&e.mode===x.mode&&(e.sf||'')===(x.sf||''));if(f&&slots[1-i].link!==f.id)x.link=f.id}
+    pullSlot(i);
+  });
+  persist();
   renderSlots();renderLib();
   let c=null;
   try{c=await IDB.get('wa_chat')}catch(e){}
