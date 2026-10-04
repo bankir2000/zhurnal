@@ -119,6 +119,19 @@ lib.forEach(e=>{if(!e.id)e.id=newId()});
 function libOf(i){return slots[i].link?lib.find(e=>e.id===slots[i].link)||null:null}
 function pullSlot(i){const e=libOf(i);if(!e){slots[i].link=null;return}FIELDS.forEach(k=>slots[i][k]=Array.isArray(e[k])?e[k].slice():(e[k]===undefined?'':e[k]))}
 function pushSlot(i){const e=libOf(i);if(!e)return;const x=slots[i];e.name=x.name||x.words.slice(0,40);e.words=x.words;e.mode=x.mode;e.senders=(x.senders||[]).slice();e.sf=x.sf||''}
+function linkText(i){return libOf(i)?'🔗 Зберігається в довіднику автоматично':'Не пов’язано з довідником (введіть слова — запис створиться сам)'}
+function ensureLink(i){
+  if(libOf(i))return false;
+  const x=slots[i];if(!terms(x.words).length&&!hasSender(x))return false;
+  const name=x.name||x.words.slice(0,40);
+  let e=lib.find(y=>y.name===name&&y.words===x.words&&y.mode===x.mode&&(y.sf||'')===(x.sf||'')&&slots[1-i].link!==y.id);
+  if(!e){e={id:newId()};lib.push(e)}
+  x.link=e.id;pushSlot(i);return true;
+}
+function syncSlot(i){
+  if(libOf(i))pushSlot(i);else if(!ensureLink(i)){return}
+  renderLib();const el=$('lk'+i);if(el)el.textContent=linkText(i);
+}
 function linkSlot(j,id){const o=1-j;if(slots[o].link===id)slots[o].link=null;slots[j].link=id;pullSlot(j)}
 const norm=s=>s.toLowerCase().replace(/[’ʼ`‘]/g,"'");
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -184,7 +197,7 @@ function hl(text,idx){
 function renderSlots(){
   $('slots').innerHTML=[0,1].map(i=>`
   <section class="card s${i}"><h2>Пошук ${i+1}</h2>
-    <div class="info lnk">${libOf(i)?'🔗 Зберігається в довіднику автоматично':'Не пов’язано з довідником (кнопка «У довідник»)'}</div>
+    <div class="info lnk" id="lk${i}">${linkText(i)}</div>
     <label class="f" for="nm${i}">Назва</label>
     <input type="text" id="nm${i}" value="${esc(slots[i].name)}" placeholder="Напр. «Дрони Полтавщина»" data-i="${i}" data-k="name">
     <label class="f" for="w${i}">Слова (через пробіл або кому; фраза — в лапках)</label>
@@ -234,7 +247,7 @@ function persist(){LS.set('wa_slots_v2',slots);LS.set('wa_lib',lib)}
 
 document.addEventListener('input',e=>{
   const d=e.target.dataset;if(d.i===undefined)return;
-  slots[+d.i][d.k]=e.target.value;if(libOf(+d.i)){pushSlot(+d.i);renderLib()}persist();limit=200;
+  slots[+d.i][d.k]=e.target.value;syncSlot(+d.i);persist();limit=200;
   if(d.k!=='name'){view=+d.i;refresh()}
 });
 document.addEventListener('click',e=>{
@@ -250,7 +263,7 @@ document.addEventListener('click',e=>{
     x.link=e.id;pushSlot(i);
     persist();renderLib();renderSlots();$('libBox').open=true;
   }
-  else if(d.sall!==undefined){const i=+d.sall;slots[i].senders=[];slots[i].sf='';if($('sf'+i))$('sf'+i).value='';document.querySelectorAll('[data-snd="'+i+'"]').forEach(c=>c.checked=false);$('sndSum'+i).textContent=sumText(i);if(libOf(i)){pushSlot(i);renderLib()}view=i;limit=200;persist();refresh()}
+  else if(d.sall!==undefined){const i=+d.sall;slots[i].senders=[];slots[i].sf='';if($('sf'+i))$('sf'+i).value='';document.querySelectorAll('[data-snd="'+i+'"]').forEach(c=>c.checked=false);$('sndSum'+i).textContent=sumText(i);syncSlot(i);view=i;limit=200;persist();refresh()}
   else if(d.clear!==undefined){slots[+d.clear]={name:'',words:'',mode:'all',senders:[],sf:'',link:null};persist();renderLib();renderSlots();refresh()}
   else if(d.load!==undefined){const [i,j]=d.load.split(',').map(Number);slots[j]={name:'',words:'',mode:'all',senders:[],sf:'',link:null};linkSlot(j,lib[i].id);renderLib();view=j;limit=200;persist();renderSlots();refresh();scrollTo({top:0,behavior:'smooth'})}
   else if(d.del!==undefined){if(confirm('Видалити з довідника?')){const id=lib[+d.del].id;slots.forEach(x=>{if(x.link===id)x.link=null});lib.splice(+d.del,1);persist();renderLib();renderSlots()}}
@@ -260,7 +273,7 @@ document.addEventListener('change',e=>{
   const i=+t.dataset.snd,n=SNDN[+t.value];
   const a=slots[i].senders=slots[i].senders||[],k=a.indexOf(n);
   if(t.checked&&k<0)a.push(n);if(!t.checked&&k>=0)a.splice(k,1);
-  if(libOf(i)){pushSlot(i);renderLib()}persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
+  syncSlot(i);persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
 });
 $('more').onclick=()=>{limit+=200;renderList()};
 const root=document.documentElement;
@@ -343,7 +356,7 @@ function doImport(s){
         else slots[i]={name:x.name||'',words:x.words||'',mode:x.mode==='any'?'any':'all',senders:Array.isArray(x.senders)?x.senders:[],sf:x.sf||'',link:null};
       });
     }
-    persist();renderLib();renderSlots();refresh();alert('Додано записів: '+n+', оновлено: '+u);
+    ensureLink(0);ensureLink(1);persist();renderLib();renderSlots();refresh();alert('Додано записів: '+n+', оновлено: '+u);
   }catch(err){alert('Невірний файл довідника.')}
 }
 $('imp').onchange=async e=>{const f=e.target.files[0];if(f)doImport(await f.text());e.target.value=''};
@@ -355,6 +368,7 @@ $('impT').onclick=()=>doImport($('ta').value);
     if(!x.link&&x.words){const f=lib.find(e=>e.words===x.words&&e.mode===x.mode&&(e.sf||'')===(x.sf||''));if(f&&slots[1-i].link!==f.id)x.link=f.id}
     pullSlot(i);
   });
+  ensureLink(0);ensureLink(1);
   persist();
   applyLook();
   renderSlots();renderLib();
