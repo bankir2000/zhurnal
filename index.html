@@ -2,6 +2,10 @@
 <html lang="uk"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Пошук у чаті WhatsApp</title>
+<meta name="theme-color" content="#3b4728">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#e8e6dc;--card:#f6f5ee;--ink:#22251e;--mut:#686c5d;--line:#cbc8b8;--a:#a8500c;--aBg:#ffc95e;--aSoft:#fff3dc;--b:#1b5a85;--bBg:#8ecdf5;--bSoft:#e6f3fc;--btn:#3b4728;--btnT:#f6f5ee}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1c17;--card:#25281f;--ink:#e8e6da;--mut:#9a9d8e;--line:#3a3e32;--a:#f0a45a;--aBg:#8a5a10;--aSoft:#2f2819;--b:#7cc0ea;--bBg:#21618f;--bSoft:#1b2a35;--btn:#a9bd86;--btnT:#1a1c17}}
@@ -14,6 +18,7 @@ h1{font-size:1.25rem;margin:4px 0 2px}
 button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
 button.p,.btn.p{background:var(--btn);color:var(--btnT);border-color:var(--btn)}
 button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--b);outline-offset:1px}
+textarea{resize:vertical;line-height:1.35}
 input[type=text],textarea,select{font:inherit;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;border-left-width:6px}
 .card.s0{border-left-color:var(--a)}.card.s1{border-left-color:var(--b)}
@@ -88,8 +93,13 @@ summary{cursor:pointer;font-weight:600}
 const $=id=>document.getElementById(id);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
           set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+const IDB={
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open('wa_search',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  async get(k){const db=await this.open();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})},
+  async set(k,v){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>rej(t.error)})}
+};
 let msgs=[],view=0,limit=200,chatName='';
-const DEF=[{name:'',words:'АРБА спочинь гот "ПТ +" "ВПТ +" готовність відбій',mode:'any',senders:[],sf:''},{name:'',words:'МВГ Сокіл-78',mode:'any',senders:[],sf:''}];
+const DEF=[{name:'',words:'АРБА спочинь гот "ПТ +" "ВПТ +" готовність відбій',mode:'any',senders:[],sf:''},{name:'',words:'МВГ Сокіл-78',mode:'all',senders:[],sf:''}];
 let slots=LS.get('wa_slots_v2',JSON.parse(JSON.stringify(DEF)));
 let lib=LS.get('wa_lib',[]);
 const norm=s=>s.toLowerCase().replace(/[’ʼ`‘]/g,"'");
@@ -159,7 +169,7 @@ function renderSlots(){
     <label class="f" for="nm${i}">Назва</label>
     <input type="text" id="nm${i}" value="${esc(slots[i].name)}" placeholder="Напр. «Дрони Полтавщина»" data-i="${i}" data-k="name">
     <label class="f" for="w${i}">Слова (через пробіл або кому; фраза — в лапках)</label>
-    <input type="text" id="w${i}" value="${esc(slots[i].words)}" placeholder="Напр. Котельва шахед «озкб»" data-i="${i}" data-k="words" autocomplete="off">
+    <textarea id="w${i}" rows="3" placeholder="Напр. Котельва шахед «озкб»" data-i="${i}" data-k="words" autocomplete="off" autocapitalize="off" spellcheck="false">${esc(slots[i].words)}</textarea>
     <div class="row">
       <select class="g" id="md${i}" data-i="${i}" data-k="mode" aria-label="Режим">
         <option value="all"${slots[i].mode==='all'?' selected':''}>Усі слова в повідомленні</option>
@@ -238,7 +248,7 @@ $('file').onchange=async e=>{
   const txt=await f.text();msgs=parse(txt);chatName=f.name;
   if(!msgs.length){$('fileInfo').textContent='Не вдалося розпізнати повідомлення у файлі «'+f.name+'».';return}
   $('fileInfo').textContent=f.name+' · повідомлень: '+msgs.length+' · '+msgs[0].d+' — '+msgs[msgs.length-1].d;
-  LS.set('wa_chat',{name:f.name,txt});
+  IDB.set('wa_chat',{name:f.name,txt}).catch(()=>alert('Не вдалося зберегти чат на пристрої — його доведеться відкривати знову.'));
   limit=200;renderSlots();refresh();
 };
 
@@ -286,10 +296,14 @@ function doImport(s){
 $('imp').onchange=async e=>{const f=e.target.files[0];if(f)doImport(await f.text());e.target.value=''};
 $('impT').onclick=()=>doImport($('ta').value);
 
-(function init(){
+(async function init(){
   renderSlots();renderLib();
-  const c=LS.get('wa_chat',null);
+  let c=null;
+  try{c=await IDB.get('wa_chat')}catch(e){}
+  if(!c)c=LS.get('wa_chat',null);
   if(c&&c.txt){chatName=c.name;msgs=parse(c.txt);$('fileInfo').textContent=c.name+' · повідомлень: '+msgs.length+' (збережено на пристрої)';renderSlots()}
   refresh();
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script></body></html>
