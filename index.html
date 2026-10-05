@@ -12,6 +12,9 @@
 :root[data-theme=dark]{--bg:#0e100b;--card:#1b1e15;--ink:#fbfaf2;--mut:#c4c7b6;--line:#656a57;--a:#ffb35c;--aSoft:#33260f;--b:#8fd0ff;--bSoft:#102535;--btn:#c3d89c;--btnT:#10130a;--fbg:#07080a;--fbd:#9da28c}
 :root[data-theme=light]{--bg:#f1efe6;--card:#ffffff;--ink:#111309;--mut:#43463a;--line:#8f8d79;--a:#8f3f00;--aSoft:#fff0cf;--b:#0b4f7a;--bSoft:#dcefff;--btn:#2f3a1d;--btnT:#ffffff;--fbg:#ffffff;--fbd:#5c5b4a}
 *{box-sizing:border-box}
+:root{color-scheme:light dark}:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+.card.sp{border-color:var(--btn)}.sp h2{background:var(--btn);color:var(--btnT)}
+#per .row>.g{flex:1 1 40%}
 html{padding-top:env(safe-area-inset-top,0);font-size:18px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @media(min-width:700px){html{font-size:20px}}
 body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.5 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;padding-bottom:env(safe-area-inset-bottom,0)}
@@ -22,7 +25,7 @@ button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);col
 button.p,.btn.p{background:var(--btn);color:var(--btnT);border-color:var(--btn)}
 button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--b);outline-offset:1px}
 textarea{resize:vertical;line-height:1.35}
-input[type=text],textarea,select{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--fbd);border-radius:8px;background:var(--fbg);color:var(--ink)}
+input[type=text],input[type=date],textarea,select{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--fbd);border-radius:8px;background:var(--fbg);color:var(--ink)}
 ::placeholder{color:var(--mut);opacity:.85}
 select{min-height:48px}
 .card{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:12px;margin:14px 0;overflow:hidden}
@@ -83,6 +86,11 @@ summary{cursor:pointer;font-weight:700;font-size:1.05rem;min-height:36px}
 
 <div id="slots"></div>
 
+<section class="card sp" id="per"><h2>Період</h2>
+  <div class="row" style="margin-top:0"><div class="g"><label class="f" for="pf" style="margin-top:0">Від</label><input type="date" id="pf"></div><div class="g"><label class="f" for="pt" style="margin-top:0">До</label><input type="date" id="pt"></div></div>
+  <div class="row"><button data-per="day">Останній день</button><button data-per="7">7 днів</button><button data-per="30">30 днів</button><button data-per="all">Весь час</button></div>
+  <div class="info" id="perInfo"></div>
+</section>
 <div class="tabs" role="tablist" id="tabs"></div>
 <div class="info" id="stat"></div>
 <div class="row" id="expRow" style="margin:0 0 6px"><span class="info" style="margin:0">Зберегти в HTML:</span><button data-ex="0">Пошук 1</button><button data-ex="1">Пошук 2</button><button data-ex="both">Обидва</button></div>
@@ -110,6 +118,11 @@ const IDB={
   async set(k,v){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>rej(t.error)})}
 };
 let msgs=[],view=0,limit=200,chatName='';
+let period=LS.get('wa_period',{from:'',to:''});
+const isoK=d=>{const p=d.split('.');const y=p[2].length===2?'20'+p[2]:p[2];return y+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')};
+const fmtK=k=>k?k.slice(8)+'.'+k.slice(5,7)+'.'+k.slice(2,4):'';
+const inPeriod=m=>(!period.from||m.k>=period.from)&&(!period.to||m.k<=period.to);
+function perText(){return (period.from||period.to)?(fmtK(period.from)||'…')+' — '+(fmtK(period.to)||'…'):''}
 const DEF=[{name:'',words:'АРБА спочинь гот "ПТ +" "ВПТ +" готовність відбій',mode:'any',senders:[],sf:''},{name:'',words:'МВГ Сокіл-78',mode:'all',senders:[],sf:''}];
 let slots=LS.get('wa_slots_v2',JSON.parse(JSON.stringify(DEF)));
 let lib=LS.get('wa_lib',[]);
@@ -148,7 +161,7 @@ function parse(txt){
       out.push(cur);
     }else if(cur){cur.x+='\n'+line}
   }
-  out.forEach(m=>m.n=norm(m.x));
+  out.forEach(m=>{m.n=norm(m.x);m.k=isoK(m.d)});
   return out;
 }
 function terms(w){
@@ -158,6 +171,7 @@ function terms(w){
 function frags(sl){return (sl.sf||'').split(/[,;\n]/).map(x=>norm(x.trim())).filter(Boolean)}
 function hasSender(sl){return (sl.senders||[]).length>0||frags(sl).length>0}
 function matches(m,sl){
+  if(!inPeriod(m))return false;
   const sn=sl.senders||[],fr=frags(sl),hs=sn.length>0||fr.length>0;
   if(hs){
     if(m.sys)return false;
@@ -222,12 +236,12 @@ function renderList(){
   const o=$('out');
   if(!msgs.length){o.innerHTML='';$('stat').textContent='Відкрийте експортований .txt файл чату.';$('more').classList.add('hide');return}
   let list;
-  if(view===2)list=msgs;
+  if(view===2)list=msgs.filter(inPeriod);
   else{
     if(!terms(slots[view].words).length&&!hasSender(slots[view])){o.innerHTML='';$('stat').textContent='Введіть слова для пошуку '+(view+1)+'.';$('more').classList.add('hide');return}
     list=msgs.filter(m=>matches(m,slots[view]));
   }
-  $('stat').textContent='Знайдено повідомлень: '+list.length+(view<2&&slots[view].name?' · '+slots[view].name:'');
+  $('stat').textContent='Знайдено повідомлень: '+list.length+(view<2&&slots[view].name?' · '+slots[view].name:'')+(perText()?' · період '+perText():'');
   const show=list.slice(0,limit);
   let last='';
   o.innerHTML=show.map(m=>{
@@ -253,6 +267,10 @@ document.addEventListener('input',e=>{
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
   if(d.v!==undefined){view=+d.v;limit=200;refresh()}
+  else if(d.per!==undefined){
+    const r=chatRange(),last=r?r[1]:new Date().toISOString().slice(0,10);
+    if(d.per==='all')setPeriod('','');else if(d.per==='day')setPeriod(last,last);else setPeriod(addDays(last,-(+d.per-1)),last);
+  }
   else if(d.ex!==undefined)exportHTML(d.ex==='both'?'both':+d.ex);
   else if(d.save!==undefined){
     const i=+d.save,x=slots[i];if(!terms(x.words).length&&!hasSender(x)){alert('Спочатку введіть слова або оберіть відправників.');return}
@@ -276,6 +294,19 @@ document.addEventListener('change',e=>{
   syncSlot(i);persist();view=i;limit=200;$('sndSum'+i).textContent=sumText(i);refresh();
 });
 $('more').onclick=()=>{limit+=200;renderList()};
+function chatRange(){if(!msgs.length)return null;let a=msgs[0].k,b=msgs[0].k;msgs.forEach(m=>{if(m.k<a)a=m.k;if(m.k>b)b=m.k});return [a,b]}
+function renderPeriod(){
+  $('pf').value=period.from;$('pt').value=period.to;
+  const r=chatRange();if(r){$('pf').min=$('pt').min=r[0];$('pf').max=$('pt').max=r[1]}
+  $('perInfo').textContent=perText()?'Фільтр: '+perText():'Увесь період'+(r?' ('+fmtK(r[0])+' — '+fmtK(r[1])+')':'');
+}
+function setPeriod(f,t){
+  if(f&&t&&f>t)[f,t]=[t,f];
+  period={from:f||'',to:t||''};LS.set('wa_period',period);limit=200;renderPeriod();refresh();
+}
+function addDays(k,n){const d=new Date(k+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+$('pf').onchange=()=>setPeriod($('pf').value,period.to);
+$('pt').onchange=()=>setPeriod(period.from,$('pt').value);
 const root=document.documentElement;
 let fs=LS.get('wa_fs',0),th=LS.get('wa_theme','auto');
 function fixTabH(){root.style.setProperty('--tabh',($('tabs').offsetHeight||56)+'px')}
@@ -296,7 +327,7 @@ $('file').onchange=async e=>{
   if(!msgs.length){$('fileInfo').textContent='Не вдалося розпізнати повідомлення у файлі «'+f.name+'».';return}
   $('fileInfo').textContent=f.name+' · повідомлень: '+msgs.length+' · '+msgs[0].d+' — '+msgs[msgs.length-1].d;
   IDB.set('wa_chat',{name:f.name,txt}).catch(()=>alert('Не вдалося зберегти чат на пристрої — його доведеться відкривати знову.'));
-  limit=200;renderSlots();refresh();
+  limit=200;renderSlots();renderPeriod();refresh();
 };
 
 function exportData(){return JSON.stringify({type:'wa-search-lib',v:2,items:lib,slots:slots.map(x=>({...x,link:undefined})),links:[slots[0].link||null,slots[1].link||null]},null,1)}
@@ -307,7 +338,7 @@ function exportHTML(which){
     const sl=slots[i],fr=(sl.sf||'').split(/[,;]/).map(x=>x.trim()).filter(Boolean);
     const snd=[...(sl.senders||[]),...fr];
     const head=`<section class="card s${i}"><h2>Пошук ${i+1}${sl.name?': '+esc(sl.name):''}</h2>
-      <div class="info">Слова: ${esc(sl.words||'—')} (${sl.mode==='any'?'будь-яке зі слів':'усі слова'})${snd.length?'<br>Від кого: '+esc(snd.join(', ')):''}</div>`;
+      <div class="info">Слова: ${esc(sl.words||'—')} (${sl.mode==='any'?'будь-яке зі слів':'усі слова'})${snd.length?'<br>Від кого: '+esc(snd.join(', ')):''}${perText()?'<br>Період: '+esc(perText()):''}</div>`;
     if(!terms(sl.words).length&&!hasSender(sl))return head+'<div class="info">Пошук порожній.</div></section>';
     const list=msgs.filter(m=>matches(m,sl));
     let last='';
@@ -376,6 +407,7 @@ $('impT').onclick=()=>doImport($('ta').value);
   try{c=await IDB.get('wa_chat')}catch(e){}
   if(!c)c=LS.get('wa_chat',null);
   if(c&&c.txt){chatName=c.name;msgs=parse(c.txt);$('fileInfo').textContent=c.name+' · повідомлень: '+msgs.length+' (збережено на пристрої)';renderSlots()}
+  renderPeriod();
   refresh();
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
   if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
