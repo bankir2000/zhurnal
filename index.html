@@ -81,7 +81,7 @@ summary{cursor:pointer;font-weight:700;font-size:1.05rem;min-height:36px}
 <body><main>
 <h1>Пошук у чаті WhatsApp</h1>
 <p class="sub" id="fileInfo">Файл ще не завантажено.</p>
-<label class="btn p big">Відкрити чат (.txt)<input id="file" type="file" accept=".txt,text/plain" class="hide"></label>
+<label class="btn p big">Відкрити чат (.txt або .zip)<input id="file" type="file" accept=".zip,.txt,application/zip,application/x-zip-compressed,text/plain" class="hide"></label>
 <div class="row tools" style="margin-top:0"><button id="fm" aria-label="Менший текст">A−</button><button id="fp" aria-label="Більший текст">A+</button><button id="th">Тема</button></div>
 
 <div id="slots"></div>
@@ -150,19 +150,160 @@ const norm=s=>s.toLowerCase().replace(/[’ʼ`‘]/g,"'");
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
+// Android: "13.05.26, 06:51 - Ім'я: текст"; iPhone: "[13.05.26, 06:51:12] Ім'я: текст";
+// Windows/Desktop: "[9/22/26, 9:37:43 AM] Ім'я: текст" (місяць/день, 12-годинний формат — порядок визначається з усього чату).
+const MSG_START=/^\[?(\d{1,4}[./]\d{1,2}[./]\d{2,4}),?\s+(\d{1,2}:\d{2})(?::\d{2})?(?:\s*([AaPp]\.?[Mm]\.?|дп|пп))?(?:\]\s*(?:-\s+)?|\s+-\s+)/i;
+function slashOrder(text){
+  for(const raw of text.split('\n')){
+    const m=/^\[?(\d{1,2})\/(\d{1,2})\/\d{2,4}/.exec(raw);
+    if(m&&+m[1]>12)return 'dm';
+  }
+  return 'md';
+}
+function chatDate(s,order){
+  const sep=s.includes('/')?'/':'.',p=s.split(/[./]/);
+  let [d,m,y]=p;
+  if(sep==='/'&&order==='md')[d,m]=[m,d];
+  return d.padStart(2,'0')+'.'+m.padStart(2,'0')+'.'+(y.length===4?y.slice(2):y);
+}
+function chatTime(t,ap){
+  const m=/(\d{1,2}):(\d{2})/.exec(t);let h=+m[1];
+  if(ap){const pm=/^(?:p|пп)/i.test(ap);h=h%12+(pm?12:0)}
+  return String(h).padStart(2,'0')+':'+m[2];
+}
 function parse(txt){
-  const re=/^(\d{1,2}\.\d{1,2}\.\d{2,4}),? (\d{1,2}:\d{2})(?::\d{2})? - ([\s\S]*)$/;
-  const out=[];let cur=null;
-  for(let line of txt.replace(/[\u200e\u200f\u202f]/g,' ').replace(/\r/g,'').split('\n')){
-    const m=re.exec(line);
+  const t=txt.replace(/[\u200e\u200f]/g,'').replace(/[\u202f\u00a0]/g,' ').replace(/\r/g,'');
+  const order=slashOrder(t),out=[];let cur=null;
+  for(const line of t.split('\n')){
+    const m=MSG_START.exec(line);
     if(m){
-      const r=m[3],i=r.indexOf(': ');
-      cur=(i>0&&i<70)?{d:m[1],t:m[2],s:r.slice(0,i),x:r.slice(i+2),sys:0}:{d:m[1],t:m[2],s:'',x:r,sys:1};
+      const r=line.slice(m[0].length),i=r.indexOf(': '),d=chatDate(m[1],order),tm=chatTime(m[2],m[3]);
+      cur=(i>0&&i<70)?{d,t:tm,s:r.slice(0,i),x:r.slice(i+2),sys:0}:{d,t:tm,s:'',x:r,sys:1};
       out.push(cur);
     }else if(cur){cur.x+='\n'+line}
   }
   out.forEach(m=>{m.n=norm(m.x);m.k=isoK(m.d)});
   return out;
+}
+
+/* ---------- ZIP (експорт WhatsApp з медіа / WhatsApp для Windows) ---------- */
+/** Pure-JS raw inflate: fallback for older iPhones/browsers without DecompressionStream. */
+function inflateJS(src) {
+  let pos = 0, bb = 0, bc = 0, o = new Uint8Array(Math.max(65536, src.length * 4)), op = 0;
+  const need = n => { if (op + n > o.length) { const t = new Uint8Array(Math.max(o.length * 2, op + n)); t.set(o); o = t; } };
+  const bits = n => { while (bc < n) { bb |= src[pos++] << bc; bc += 8; } const v = bb & ((1 << n) - 1); bb >>>= n; bc -= n; return v; };
+  const build = lens => {
+    const count = new Uint16Array(16), sym = new Uint16Array(lens.length), offs = new Uint16Array(16);
+    for (const l of lens) count[l]++;
+    count[0] = 0;
+    for (let i = 1; i < 16; i++) offs[i] = offs[i - 1] + count[i - 1];
+    for (let s = 0; s < lens.length; s++) if (lens[s]) sym[offs[lens[s]]++] = s;
+    return { count, sym };
+  };
+  const decode = h => {
+    let code = 0, first = 0, idx = 0;
+    for (let len = 1; len < 16; len++) {
+      code |= bits(1);
+      const c = h.count[len];
+      if (code - c < first) return h.sym[idx + (code - first)];
+      idx += c; first += c; first <<= 1; code <<= 1;
+    }
+    throw new Error('помилка розпакування');
+  };
+  const LB = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],
+    LE = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0],
+    DB = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],
+    DE = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  let last;
+  do {
+    last = bits(1);
+    const t = bits(2);
+    if (t === 0) {
+      bb = 0; bc = 0;
+      const len = src[pos] | (src[pos + 1] << 8); pos += 4;
+      need(len); o.set(src.subarray(pos, pos + len), op); op += len; pos += len;
+    } else if (t === 3) throw new Error('помилка розпакування');
+    else {
+      let lh, dh;
+      if (t === 1) {
+        const l = new Uint8Array(288);
+        for (let i = 0; i < 288; i++) l[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+        lh = build(l); dh = build(new Uint8Array(30).fill(5));
+      } else {
+        const nl = bits(5) + 257, nd = bits(5) + 1, nc = bits(4) + 4,
+          ord = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15], cl = new Uint8Array(19);
+        for (let i = 0; i < nc; i++) cl[ord[i]] = bits(3);
+        const ch = build(cl), lens = new Uint8Array(nl + nd);
+        let i = 0;
+        while (i < nl + nd) {
+          const s = decode(ch);
+          if (s < 16) lens[i++] = s;
+          else {
+            let prev = 0, rep;
+            if (s === 16) { prev = lens[i - 1]; rep = 3 + bits(2); } else if (s === 17) rep = 3 + bits(3); else rep = 11 + bits(7);
+            while (rep--) lens[i++] = prev;
+          }
+        }
+        lh = build(lens.subarray(0, nl)); dh = build(lens.subarray(nl));
+      }
+      for (;;) {
+        let s = decode(lh);
+        if (s < 256) { need(1); o[op++] = s; }
+        else if (s === 256) break;
+        else {
+          s -= 257;
+          const len = LB[s] + bits(LE[s]), ds = decode(dh), dist = DB[ds] + bits(DE[ds]);
+          need(len);
+          for (let k = 0; k < len; k++) { o[op] = o[op - dist]; op++; }
+        }
+      }
+    }
+  } while (!last);
+  return o.subarray(0, op);
+}
+
+/** Raw-deflate decompression: built-in DecompressionStream when available, otherwise the JS fallback. */
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch { /* fall through to the JS implementation */ }
+  }
+  return inflateJS(bytes);
+}
+
+/** Reads the .txt entries of a .zip (.md only as a fallback) (WhatsApp «Експорт чату» with media is a zip holding _chat.txt) and joins them by name. */
+async function readZipText(buf) {
+  const u = new Uint8Array(buf), dv = new DataView(buf), dec = new TextDecoder('utf-8');
+  let end = -1;
+  for (let i = u.length - 22; i >= Math.max(0, u.length - 22 - 65535); i--) if (dv.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  if (end < 0) throw new Error('файл не схожий на zip-архів');
+  const count = dv.getUint16(end + 10, true);
+  let p = dv.getUint32(end + 16, true);
+  const found = [];
+  for (let n = 0; n < count; n++) {
+    if (p + 46 > u.length || dv.getUint32(p, true) !== 0x02014b50) throw new Error('zip-архів пошкоджено');
+    const flags = dv.getUint16(p + 8, true), method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), at = dv.getUint32(p + 42, true);
+    const name = dec.decode(u.subarray(p + 46, p + 46 + nl));
+    p += 46 + nl + el + cl;
+    if (!/\.(?:txt|md)$/i.test(name) || /(?:^|\/)(?:__MACOSX\/|\._)/.test(name)) continue;
+    if (flags & 1) throw new Error('zip-архів захищено паролем');
+    const start = at + 30 + dv.getUint16(at + 26, true) + dv.getUint16(at + 28, true), data = u.subarray(start, start + size);
+    if (method !== 0 && method !== 8) throw new Error('непідтримуваний спосіб стиснення в zip');
+    found.push([name, dec.decode(method === 0 ? data : await inflateRaw(data))]);
+  }
+  if (!found.length) throw new Error('у zip-архіві немає .txt файлу');
+  // WhatsApp Desktop packs the same chat twice (chat.txt and chat.md): .md only when there is no .txt, otherwise everything would be doubled.
+  if (found.some(x => /\.txt$/i.test(x[0]))) found.splice(0, found.length, ...found.filter(x => /\.txt$/i.test(x[0])));
+  return found.sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join('\n');
+}
+
+/** Text of a chosen file: .txt as-is, .zip unpacked (detected by the «PK» signature, not by the name). */
+async function fileText(f) {
+  const buf = await f.arrayBuffer(), b = new Uint8Array(buf, 0, 2);
+  return b[0] === 0x50 && b[1] === 0x4B ? readZipText(buf) : new TextDecoder('utf-8').decode(buf);
 }
 function terms(w){
   const r=[];w.replace(/,/g,' ').replace(/["“«]([^"”»]+)["”»]|(\S+)/g,(_,a,b)=>{const t=norm((a||b).trim());if(t)r.push(t)});
@@ -234,7 +375,7 @@ function renderTabs(){
 }
 function renderList(){
   const o=$('out');
-  if(!msgs.length){o.innerHTML='';$('stat').textContent='Відкрийте експортований .txt файл чату.';$('more').classList.add('hide');return}
+  if(!msgs.length){o.innerHTML='';$('stat').textContent='Відкрийте експортований файл чату (.txt або .zip).';$('more').classList.add('hide');return}
   let list;
   if(view===2)list=msgs.filter(inPeriod);
   else{
@@ -323,7 +464,9 @@ addEventListener('resize',fixTabH);
 
 $('file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  const txt=await f.text();msgs=parse(txt);chatName=f.name;
+  let txt;
+  try{txt=await fileText(f)}catch(err){$('fileInfo').textContent='Не вдалося прочитати файл: '+err.message+'.';return}
+  msgs=parse(txt);chatName=f.name;
   if(!msgs.length){$('fileInfo').textContent='Не вдалося розпізнати повідомлення у файлі «'+f.name+'».';return}
   $('fileInfo').textContent=f.name+' · повідомлень: '+msgs.length+' · '+msgs[0].d+' — '+msgs[msgs.length-1].d;
   IDB.set('wa_chat',{name:f.name,txt}).catch(()=>alert('Не вдалося зберегти чат на пристрої — його доведеться відкривати знову.'));
